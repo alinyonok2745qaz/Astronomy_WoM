@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Астрономия WoM — Интерактивная Астрономическая Башня</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Marcellus&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gold: '#D4AF37',
+                        'gold-light': '#F3E5AB',
+                        'space-dark': '#060814',
+                        'parchment': '#1a162b'
+                    },
+                    fontFamily: {
+                        cinzel: ['Cinzel', 'serif'],
+                        marcellus: ['Marcellus', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #04060f;
+            color: #f3e5ab;
+            font-family: 'Marcellus', serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Glassmorphic Parchment Cards */
+        .magic-card {
+            background: rgba(18, 14, 33, 0.88);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            box-shadow: 0 0 25px rgba(212, 175, 55, 0.15), inset 0 0 15px rgba(212, 175, 55, 0.1);
+            backdrop-filter: blur(12px);
+        }
+
+        .magic-btn {
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(100, 60, 150, 0.3) 100%);
+            border: 1px solid rgba(212, 175, 55, 0.5);
+            color: #F3E5AB;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .magic-btn:hover {
+            border-color: #D4AF37;
+            box-shadow: 0 0 18px rgba(212, 175, 55, 0.5), inset 0 0 10px rgba(212, 175, 55, 0.3);
+            color: #ffffff;
+            transform: translateY(-2px);
+        }
+
+        .magic-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .magic-btn:hover::after {
+            opacity: 1;
+        }
+
+        .magic-btn.active {
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.6) 0%, rgba(180, 120, 20, 0.8) 100%);
+            color: #060814;
+            font-weight: bold;
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.8);
+        }
+
+        /* Glowing text effects */
+        .glow-title {
+            text-shadow: 0 0 12px rgba(212, 175, 55, 0.6), 0 0 25px rgba(212, 175, 55, 0.3);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(10, 8, 20, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(212, 175, 55, 0.4);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(212, 175, 55, 0.8);
+        }
+
+        /* Pulse animations */
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+        }
+        .pulse-bg {
+            animation: pulseGlow 6s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen m-0 p-0 overflow-hidden font-marcellus">
+
+    <!-- CANVAS BACKGROUND (SPACE SIMULATION & CONSTELLATION DRAWING) -->
+    <canvas id="spaceCanvas" class="absolute inset-0 z-0 cursor-crosshair"></canvas>
+
+    <!-- HEADER / ASTROLOGICAL BANNER -->
+    <header class="absolute top-0 left-0 right-0 z-10 p-4 sm:p-6 flex justify-between items-center pointer-events-none">
+        <div class="pointer-events-auto flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full border border-gold/60 bg-black/60 flex items-center justify-center shadow-lg shadow-gold/20">
+                <i class="fa-solid fa-wand-magic-sparkles text-gold text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-cinzel text-xl sm:text-2xl font-bold text-gold glow-title tracking-widest uppercase">Астрономия WoM</h1>
+                <p class="text-xs text-gold-light/70 font-cinzel">Школа Волшебства • Астрономическая Башня</p>
+            </div>
+        </div>
+
+        <div class="pointer-events-auto flex items-center gap-2">
+            <button onclick="toggleConstellationMode()" id="modeToggleBtn" class="magic-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-cinzel font-bold flex items-center gap-2 shadow-lg">
+                <i class="fa-solid fa-pen-nib"></i>
+                <span id="modeBtnText">Режим: Созвездия</span>
+            </button>
+            <button onclick="clearConstellationLines()" id="clearLinesBtn" class="magic-btn px-3 py-2 rounded-xl text-xs font-cinzel hidden" title="Очистить нарисованные линии">
+                <i class="fa-solid fa-eraser"></i> Сброс
+            </button>
+            <button onclick="showConstellationGuide()" id="guideBtn" class="magic-btn px-3 py-2 rounded-xl text-xs font-cinzel hidden" title="Подсказки созвездий">
+                <i class="fa-solid fa-eye"></i> Подсказка
+            </button>
+        </div>
+    </header>
+
+    <!-- QUICK NAVIGATION BAR (BOTTOM) -->
+    <nav class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 max-w-full px-4 w-auto">
+        <div class="magic-card p-2 rounded-2xl flex items-center gap-1 sm:gap-2 overflow-x-auto max-w-[95vw] shadow-2xl">
+            <button onclick="selectCategory('all')" class="nav-cat-btn magic-btn active px-3 sm:px-4 py-2 rounded-xl text-xs font-cinzel whitespace-nowrap">
+                <i class="fa-solid fa-globe mr-1"></i>Все
+            </button>
+            <button onclick="selectCategory('star')" class="nav-cat-btn magic-btn px-3 sm:px-4 py-2 rounded-xl text-xs font-cinzel whitespace-nowrap">
+                <i class="fa-solid fa-sun mr-1 text-yellow-400"></i>Солнце
+            </button>
+            <button onclick="selectCategory('planets')" class="nav-cat-btn magic-btn px-3 sm:px-4 py-2 rounded-xl text-xs font-cinzel whitespace-nowrap">
+                <i class="fa-solid fa-earth-americas mr-1 text-blue-400"></i>Планеты
+            </button>
+            <button onclick="selectCategory('moons')" class="nav-cat-btn magic-btn px-3 sm:px-4 py-2 rounded-xl text-xs font-cinzel whitespace-nowrap">
+                <i class="fa-solid fa-moon mr-1 text-gray-300"></i>Спутники
+            </button>
+            <button onclick="selectCategory('deepspace')" class="nav-cat-btn magic-btn px-3 sm:px-4 py-2 rounded-xl text-xs font-cinzel whitespace-nowrap">
+                <i class="fa-solid fa-meteor mr-1 text-purple-400"></i>Малые Тела
+            </button>
+        </div>
+    </nav>
+
+    <!-- HINT FLOATING INSTRUCTION -->
+    <div id="instructionToast" class="absolute top-20 left-1/2 -translate-x-1/2 z-10 pointer-events-none transition-all duration-500 opacity-90">
+        <div class="bg-black/70 border border-gold/40 text-gold-light text-xs sm:text-sm font-cinzel px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md flex items-center gap-2">
+            <i class="fa-solid fa-circle-info text-gold animate-pulse"></i>
+            <span id="instructionText">Нажимайте на небесные тела для изучения лекционного материала</span>
+        </div>
+    </div>
+
+    <!-- OBJECT DETAIL MODAL / SCROLL -->
+    <div id="infoModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4 transition-all duration-300">
+        <div class="magic-card w-full max-w-2xl rounded-2xl p-6 sm:p-8 relative max-h-[90vh] flex flex-col border border-gold/60 shadow-2xl">
+            <!-- Close Button -->
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gold-light/60 hover:text-gold text-2xl w-9 h-9 flex items-center justify-center rounded-full hover:bg-gold/10 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- Modal Header -->
+            <div class="flex items-center gap-4 mb-4 border-b border-gold/30 pb-4">
+                <div id="modalIconContainer" class="w-16 h-16 rounded-2xl bg-black/50 border border-gold/40 flex items-center justify-center text-3xl shrink-0 shadow-inner">
+                    🪐
+                </div>
+                <div>
+                    <h2 id="modalTitle" class="font-cinzel text-2xl sm:text-3xl font-bold text-gold glow-title">Юпитер</h2>
+                    <p id="modalSubtitle" class="text-xs text-gold-light/70 font-cinzel tracking-wider uppercase">Гигант Солнечной системы • Лекционный разбор</p>
+                </div>
+            </div>
+
+            <!-- Modal Content (Scrollable) -->
+            <div id="modalBody" class="space-y-4 overflow-y-auto pr-2 text-sm sm:text-base leading-relaxed text-yellow-100/90 font-marcellus">
+                <!-- Content injected dynamically -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="mt-6 pt-3 border-t border-gold/20 flex justify-between items-center text-xs text-gold-light/60 font-cinzel">
+                <span><i class="fa-solid fa-book-bookmark text-gold"></i> Курс Астрономии WoM</span>
+                <button onclick="closeModal()" class="magic-btn px-5 py-2 rounded-xl text-xs font-bold text-black bg-gold">Закрыть свиток</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT SIMULATION LOGIC -->
+    <script>
+        // --- LECTURE DATA (FROM SCHOOL OF MAGIC ASTRONOMY) ---
+        const ASTRONOMY_DATA = {
+            sun: {
+                id: 'sun',
+                name: 'Солнце (Sol)',
+                category: 'star',
+                icon: '☀️',
+                color: '#ffcc00',
+                radius: 26,
+                orbitRadius: 0,
+                speed: 0,
+                subtitle: 'Центральная звезда • Источник Магической Энергии',
+                content: `
+                    <p class="mb-3"><b>Астрономическая справка:</b> Жёлтый карлик классом G2V. Состоит главным образом из водорода (~73%) и гелия (~25%). Является гравитационным ядром нашей системы.</p>
+                    <div class="bg-black/40 border-l-2 border-gold p-3 rounded-r-lg mb-3">
+                        <h4 class="font-cinzel text-gold text-xs font-bold mb-1">МАГИЧЕСКИЕ И АСТРОЛОГИЧЕСКИЕ СВОЙСТВА:</h4>
+                        <p class="text-xs">Солнце олицетворяет жизненную силу, лидерство, процветание и наивысший магический потенциал. В зените усиливает действие светлых чар, защитных заклинаний и ритуалов исцеления.</p>
+                    </div>
+                    <p class="text-xs opacity-90"><b>Интересный лекционный факт:</b> Солнечные вспышки и затмения критически влияют на варку сложных Зелий уровня Ж.А.М.К. (например, Напитка Живой Смерти и Феликс Фелицис).</p>
+                `
+            },
+            mercury: {
+                id: 'mercury',
+                name: 'Меркурий',
+                category: 'planets',
+                icon: '☿️',
+                color: '#a8a8a8',
+                radius: 6,
+                orbitRadius: 65,
+                speed: 0.025,
+                subtitle: 'Первая планета • Посланник Мысли',
+                content: `
+                    <p class="mb-3"><b>Астрономическая справка:</b> Самая маленькая и ближайшая к Солнцу планета. Не имеет постоянной атмосферы и спутников. Температурные перепады достигают от -180°C до +430°C.</p>
+                    <div class="bg-black/40 border-l-2 border-gold p-3 rounded-r-lg mb-3">
+                        <h4 class="font-cinzel text-gold text-xs font-bold mb-1">МАГИЧЕСКОЕ ЗНАЧЕНИЕ:</h4>
+                        <p class="text-xs">Покровительствует ментальной магии, Легилименции, Окклюменции и быстрой передаче информации (Совиная почта и чары протея).</p>
+                    </div>
+                    <p class="text-xs opacity-90"><b>Период обращения:</b> 88 земных суток. В период ретроградного Меркурия магам рекомендуется перепроверять формулы сложных чар.</p>
+                `
+            },
+            venus: {
+                id: 'venus',
+                name: 'Венера',
+                category: 'planets',
+                icon: '♀️',
+                color: '#e3bb76',
+                radius: 10,
+                orbitRadius: 105,
+                speed: 0.018,
+                subtitle: 'Вторая планета • Утренняя и Вечерняя Звезда',
+                content: `
+                    <p class="mb-3"><b>Астрономическая справка:</b> Самая горячая планета системы из-за плотной углекислотной атмосферы и мощного парникового эффекта (до 465°C). Покрыта облаками из серной кислоты.</p>
+                    <div class="bg-black/40 border-l-2 border-gold p-3 rounded-r-lg mb-3">
+                        <h4 class="font-cinzel text-gold text-xs font-bold mb-1">АСТРОЛОГИЯ И ЧАРЫ:</h4>
+                        <p class="text-xs">Связана с гармонией, любовной магией (Любовные напитки, Амортенция) и прорицаниями на человеческие отношения.</p>
+                    </div>
+                `
+            },
+            earth: {
+                id: 'earth',
+                name: 'Земля',
+                category: 'planets',
+                icon: '🌍',
+                color: '#4b9cd3',
+                radius: 11,
+                orbitRadius: 155,
+                speed: 0.012,
+                subtitle: 'Третья планета • Обитель Магии и Природы',
+                content: `
+                    <p class="mb-3"><b>Астрономическая справка:</b> Единственная известная планета с гидросферой, богатой кислородом атмосферой и сложной биологической жизнью.</p>
+                    <div class="bg-black/40 border-l-2 border-gold p-3 rounded-r-lg mb-3">
+                        <h4 class="font-cinzel text-gold text-xs font-bold mb-1">ОБИТЕЛЬ СТИХИЙ:</h4>
+                        <p class="text-xs">Земной шар является гармоничным балансом четырёх основных магических стихий: Огня, Воды, Воздуха и Земли. Фундамент для Травологии и Магической Зоологии.</p>
+                    </div>
+                `
+            },
+            moon: {
+                id: 'moon',
+                name: 'Луна (Selene)',
+                category: 'moons',
+                icon: '🌙',
+                color: '#e0e0e0',
+                radius: 5,
+                orbitRadius: 180, // Rotates near earth in custom sim
+                speed: 0.03,
+                subtitle: 'Спутник Земли • Владычица Приливов и Превращений',
+                content: `
+                    <p class="mb-3"><b>Астрономическая справка:</b> Единственный естественный спутник Земли. Не имеет собственной атмосферы и находится в приливном захвате.</p>
+                    <div class="bg-black/40 border-l-2 border-gold p-3 rounded-r-lg mb-3">
+                        <h4 class="font-cinzel text-gold text-xs font-bold mb-1">МАГИЧЕСКИЕ ФАЗЫ:</h4>
+                        <p class="text-xs"><b>Полнолуние:</b> Время трансформирующих заклинаний, обращения оборотней и сбора редких ингредиентов (водоросли, взятые в полнолуние для Оборотного зелья).</p>
+                    </div>
+                `
+            },
+            mars: {
+                id: 'mars',
+                name: 'Марс',
+                category: 'planets',
+                icon: '♂️',
+                color: '#c85a32',
+                radius: 9,
+                orbitRadius: 215,
+                speed: 0.009,
+                subtitle: 'Четвёртая планета • Красный Воин',
+                content: `
+                    <p class="mb-3"><b>Астрономическая справка:</b> Красная планета, цвет которой обусловлен высоким содержанием оксида железа в грунте. Имеет тонкую атмосферу и гигантские вулканы (Олимп).</p>
+                    <div class="bg-black/40 border-l-2 border-gold p-3 rounded-r-lg mb-3">
+                        <h4 class="font-cinzel text-gold text-xs font-bold mb-1">КЕНТАВРЫ И ПРОРИЦАНИЯ:</h4>
+                        <p class="text-xs">Марс ярко светит над лесом, когда грядут битвы и перемены. Кентавры используют движение Марса для предсказания военных конфликтов и защитных заклинаний.</p>
+                    </div>
+                `
+            },
+            jupiter: {
+                id: 'jupiter',
+                name: 'Юпитер',
+                category: 'planets',
+                icon: '♃',
+                color: '#d2a374',
+                radius: 18,
+                orbitRadius: 275,
+                speed: 0.006,
+                subtitle: 'Пятая планета • Владыка Порядка и Закона',
+                content: `
+                    <p class="mb-3"><b>Астрономическая справка:</b> Газовый гигант, крупнейшая планета Солнечной системы. Знаменит Большим Красным Пятном — колоссальным антициклоническим штормом.</p>
+                    <div class="bg-black/40 border-l-2 border-gold p-3 rounded-r-lg mb-3">
+                        <h4 class="font-cinzel text-gold text-xs font-bold mb-1">АСТРОНОМИЧЕСКАЯ МАГИЯ:</h4>
+                        <p class="text-xs">Юпитер отвечает за изобилие, мудрость и расширение магической силы. Его положение учитывается при закладке фундамента древних заклятий.</p>
+                    </div>
+                `
+            },
+            saturn: {
+                id: 'saturn',
+                name: 'Сатурн',
+                category: 'planets',
+                icon: '♄',
+                color: '#e3c18f',
+                radius: 15,
+                orbitRadius: 335,
+                speed: 0.004,
+                hasRings: true,
+                subtitle: 'Шестая планета • Властелин Колец и Времени',
+                content: `
+                    <p class="mb-3"><b>Астрономическая справка:</b> Газовый гигант с величественной системой ледяных и пылевых колец. Плотность планеты меньше плотности воды.</p>
+                    <div class="bg-black/40 border-l-2 border-gold p-3 rounded-r-lg mb-3">
+                        <h4 class="font-cinzel text-gold text-xs font-bold mb-1">СВЯЗЬ С ВРЕМЕНЕМ И СМЕРТЬЮ:</h4>
+                        <p class="text-xs">Связан с Хроногией (магией времени), Маховиками Времени и установлением нерушимых магических барьеров и клятв.</p>
+                    </div>
+                `
+            },
+            comet: {
+                id: 'comet',
+                name: 'Комета Галлея / Малые Тела',
+                category: 'deepspace',
+                icon: '☄️',
+                color: '#88e3ee',
+                radius: 7,
+                orbitRadius: 390,
+                speed: 0.015,
+                subtitle: 'Ледяной Странник • Предвестник Знамений',
+                content: `
+                    <p class="mb-3"><b>Астрономическая справка:</b> Небесное тело из изо льда, пыли и каменистых частиц. При приближении к Солнцу образует ярко светящийся хвост (кому).</p>
+                    <div class="bg-black/40 border-l-2 border-gold p-3 rounded-r-lg mb-3">
+                        <h4 class="font-cinzel text-gold text-xs font-bold mb-1">МАГИЧЕСКИЙ ЭФФЕКТ:</h4>
+                        <p class="text-xs">Появление комет в небесах высвобождает редкие потоки магии. Напитки, сваренные в период прохождения кометы, приобретают умноженную силу.</p>
+                    </div>
+                `
+            },
+            nebula: {
+                id: 'nebula',
+                name: 'Туманность Ориона',
+                category: 'deepspace',
+                icon: '🌌',
+                color: '#ca73e6',
+                radius: 20,
+                orbitRadius: 440,
+                speed: 0.002,
+                subtitle: 'Колыбель Новых Звёзд • Глубокий Космос',
+                content: `
+                    <p class="mb-3"><b>Астрономическая справка:</b> Светящаяся межзвёздная туманность из газа и пыли, где происходит активное образование молодых звёздных систем.</p>
+                    <div class="bg-black/40 border-l-2 border-gold p-3 rounded-r-lg mb-3">
+                        <h4 class="font-cinzel text-gold text-xs font-bold mb-1">ИСТОЧНИК ИЗНАЧАЛЬНОЙ МАГИИ:</h4>
+                        <p class="text-xs">Туманности служат медитативным ориентиром для Астрологов и Магов-Прорицателей для считывания судьбоносных нитей Вселенной.</p>
+                    </div>
+                `
+            }
+        };
+
+        // KNOWN CONSTELLATIONS DATA FOR INTERACTIVE DRAWING
+        const CONSTELLATIONS_INFO = [
+            {
+                name: 'Большая Медведица (Ursa Major)',
+                desc: 'Одно из самых известных созвездий северного полушария. Содержит астеризм Большой Ковш. Помогает волшебникам находить Полярную звезду и ориентироваться в ночных полётах на метле.'
+            },
+            {
+                name: 'Орион (Orion)',
+                desc: 'Созвездие Великого Охотника. Пояс Ориона из трёх ярких звёзд излучает сильную защитную энергетику. Используется в астрономических таблицах 3-го курса.'
+            },
+            {
+                name: 'Кассиопея (Cassiopeia)',
+                desc: 'Характерная «W»-образная группа звёзд. Названа в честь тщеславной царицы. В астрологии ассоциируется с гордостью, преображением и высокой трансфигурацией.'
+            },
+            {
+                name: 'Дракон (Draco)',
+                desc: 'Огромное околополярное созвездие. Олицетворяет древнюю драконью магию, стойкость и защиту тайных знаний Астрономической башни.'
+            }
+        ];
+
+        // --- CANVAS SETUP & ENGINE ---
+        const canvas = document.getElementById('spaceCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        let isConstellationMode = false;
+        let drawnLines = []; // User drawn constellation lines: [{fromStar, toStar}]
+        let userPoints = []; // Interactive stars
+        let activePoint = null;
+        let selectedCategory = 'all';
+
+        // Particle Background System
+        let bgStars = [];
+        const NUM_BG_STARS = 250;
+
+        function initBgStars() {
+            bgStars = [];
+            for (let i = 0; i < NUM_BG_STARS; i++) {
+                bgStars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    size: Math.random() * 2 + 0.5,
+                    alpha: Math.random(),
+                    speed: Math.random() * 0.02 + 0.005,
+                    twinkle: Math.random() * 0.05
+                });
+            }
+        }
+
+        // Fixed Constellation Points for Drawing
+        function initConstellationNodes() {
+            userPoints = [];
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // Generate structured starry points
+            const starCoords = [
+                // Ursa Major pattern offset
+                {x: centerX - 250, y: centerY - 150, name: 'Дубхе'},
+                {x: centerX - 180, y: centerY - 160, name: 'Мерак'},
+                {x: centerX - 140, y: centerY - 100, name: 'Фекда'},
+                {x: centerX - 210, y: centerY - 80, name: 'Мегрец'},
+                {x: centerX - 120, y: centerY - 40, name: 'Алиот'},
+                {x: centerX - 70, y: centerY - 10, name: 'Мицар'},
+                {x: centerX - 10, y: centerY + 20, name: 'Алькаид'},
+
+                // Orion pattern offset
+                {x: centerX + 150, y: centerY - 180, name: 'Бетельгейзе'},
+                {x: centerX + 250, y: centerY - 150, name: 'Беллатрикс'},
+                {x: centerX + 180, y: centerY - 70, name: 'Минтака'},
+                {x: centerX + 200, y: centerY - 65, name: 'Альнилам'},
+                {x: centerX + 220, y: centerY - 60, name: 'Альнитак'},
+                {x: centerX + 170, y: centerY + 50, name: 'Саиф'},
+                {x: centerX + 260, y: centerY + 40, name: 'Ригель'},
+
+                // Cassiopeia pattern offset
+                {x: centerX - 100, y: centerY + 180, name: 'Каф'},
+                {x: centerX - 50, y: centerY + 140, name: 'Шедар'},
+                {x: centerX, y: centerY + 170, name: 'Нави'},
+                {x: centerX + 60, y: centerY + 130, name: 'Рукбах'},
+                {x: centerX + 110, y: centerY + 160, name: 'Сегин'}
+            ];
+
+            starCoords.forEach((st, idx) => {
+                userPoints.push({
+                    id: idx,
+                    x: st.x,
+                    y: st.y,
+                    name: st.name,
+                    radius: 4,
+                    glow: Math.random() * Math.PI
+                });
+            });
+        }
+
+        // Orbit Angles State for Planets
+        let orbits = {};
+        Object.keys(ASTRONOMY_DATA).forEach(key => {
+            orbits[key] = Math.random() * Math.PI * 2;
+        });
+
+        // RE-SIZE HANDLER
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initBgStars();
+            initConstellationNodes();
+        });
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. Draw Space Background (Deep Cosmic Gradient)
+            const bgGradient = ctx.createRadialGradient(width/2, height/2, 50, width/2, height/2, Math.max(width, height));
+            bgGradient.addColorStop(0, '#0a0d24');
+            bgGradient.addColorStop(0.6, '#050716');
+            bgGradient.addColorStop(1, '#020308');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // 2. Render Twinkling Background Stars
+            bgStars.forEach(star => {
+                star.alpha += Math.sin(star.twinkle) * 0.015;
+                star.twinkle += star.speed;
+                ctx.fillStyle = `rgba(255, 245, 210, ${Math.abs(Math.sin(star.alpha))})`;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            if (!isConstellationMode) {
+                // --- 3D / ORBITAL CELESTIAL BODIES MODE ---
+
+                // Draw Orbits
+                Object.values(ASTRONOMY_DATA).forEach(obj => {
+                    if (obj.orbitRadius > 0) {
+                        const isVisible = selectedCategory === 'all' || obj.category === selectedCategory;
+                        ctx.beginPath();
+                        ctx.arc(centerX, centerY, obj.orbitRadius, 0, Math.PI * 2);
+                        ctx.strokeStyle = isVisible ? 'rgba(212, 175, 55, 0.15)' : 'rgba(255, 255, 255, 0.03)';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([4, 4]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                });
+
+                // Update & Draw Celestial Bodies
+                Object.values(ASTRONOMY_DATA).forEach(obj => {
+                    const isVisible = selectedCategory === 'all' || obj.category === selectedCategory;
+                    
+                    // Update angle
+                    orbits[obj.id] += obj.speed;
+                    const angle = orbits[obj.id];
+
+                    let x = centerX;
+                    let y = centerY;
+
+                    if (obj.orbitRadius > 0) {
+                        x = centerX + Math.cos(angle) * obj.orbitRadius;
+                        y = centerY + Math.sin(angle) * obj.orbitRadius;
+                    }
+
+                    obj.currentX = x;
+                    obj.currentY = y;
+
+                    // Draw Saturn Rings
+                    if (obj.hasRings && isVisible) {
+                        ctx.save();
+                        ctx.translate(x, y);
+                        ctx.rotate(0.4);
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, obj.radius * 2.2, obj.radius * 0.7, 0, 0, Math.PI * 2);
+                        ctx.strokeStyle = 'rgba(227, 193, 143, 0.6)';
+                        ctx.lineWidth = 4;
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+
+                    // Render Glowing Body
+                    ctx.beginPath();
+                    ctx.arc(x, y, obj.radius, 0, Math.PI * 2);
+                    
+                    // Body Color Gradient
+                    const glow = ctx.createRadialGradient(x, y, obj.radius * 0.2, x, y, obj.radius * 1.8);
+                    glow.addColorStop(0, '#ffffff');
+                    glow.addColorStop(0.5, obj.color);
+                    glow.addColorStop(1, 'transparent');
+
+                    ctx.fillStyle = isVisible ? glow : 'rgba(100,100,100,0.2)';
+                    ctx.fill();
+
+                    // Comet Tail Special Effect
+                    if (obj.id === 'comet' && isVisible) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x - Math.cos(angle) * 45, y - Math.sin(angle) * 45);
+                        ctx.strokeStyle = 'rgba(136, 227, 238, 0.4)';
+                        ctx.lineWidth = 6;
+                        ctx.stroke();
+                    }
+
+                    // Text Label
+                    if (isVisible) {
+                        ctx.font = '11px Cinzel, serif';
+                        ctx.fillStyle = 'rgba(243, 229, 171, 0.85)';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(obj.name.split(' ')[0], x, y + obj.radius + 14);
+                    }
+                });
+
+            } else {
+                // --- CONSTELLATION DRAWING MODE ---
+
+                // Render User Drawn Lines
+                ctx.strokeStyle = '#D4AF37';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#D4AF37';
+                ctx.shadowBlur = 10;
+
+                drawnLines.forEach(line => {
+                    ctx.beginPath();
+                    ctx.moveTo(line.from.x, line.from.y);
+                    ctx.lineTo(line.to.x, line.to.y);
+                    ctx.stroke();
+                });
+                ctx.shadowBlur = 0; // reset
+
+                // Render Interactive Constellation Stars
+                userPoints.forEach(pt => {
+                    pt.glow += 0.05;
+                    const glowSize = pt.radius + Math.sin(pt.glow) * 2;
+
+                    // Glow halo
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, glowSize * 2.5, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(212, 175, 55, 0.2)';
+                    ctx.fill();
+
+                    // Core star
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, glowSize, 0, Math.PI * 2);
+                    ctx.fillStyle = (activePoint === pt) ? '#ffffff' : '#F3E5AB';
+                    ctx.fill();
+
+                    // Star name
+                    ctx.font = '10px Marcellus, serif';
+                    ctx.fillStyle = 'rgba(212, 175, 55, 0.7)';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(pt.name, pt.x, pt.y - 10);
+                });
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- INTERACTION HANDLERS ---
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            if (!isConstellationMode) {
+                // Click Celestial Body
+                Object.values(ASTRONOMY_DATA).forEach(obj => {
+                    const isVisible = selectedCategory === 'all' || obj.category === selectedCategory;
+                    if (!isVisible) return;
+
+                    const dist = Math.hypot(mouseX - obj.currentX, mouseY - obj.currentY);
+                    if (dist < obj.radius + 12) {
+                        openModal(obj);
+                    }
+                });
+            } else {
+                // Click Stars to Connect Lines
+                let clickedStar = userPoints.find(pt => Math.hypot(mouseX - pt.x, mouseY - pt.y) < 20);
+
+                if (clickedStar) {
+                    if (!activePoint) {
+                        activePoint = clickedStar;
+                        showToast(`Начальная звезда: ${clickedStar.name}. Кликните по следующей звезде.`);
+                    } else if (activePoint !== clickedStar) {
+                        // Add Line
+                        drawnLines.push({ from: activePoint, to: clickedStar });
+                        createSparkleEffect(clickedStar.x, clickedStar.y);
+                        showToast(`Соединено: ${activePoint.name} ➔ ${clickedStar.name}`);
+                        activePoint = clickedStar;
+
+                        // Check if user has drawn several lines
+                        if (drawnLines.length >= 4) {
+                            triggerMagicConstellationUnlock();
+                        }
+                    }
+                }
+            }
+        });
+
+        // SPARKLE PARTICLES EFFECT
+        function createSparkleEffect(x, y) {
+            for (let i = 0; i < 12; i++) {
+                bgStars.push({
+                    x: x + (Math.random() - 0.5) * 30,
+                    y: y + (Math.random() - 0.5) * 30,
+                    size: Math.random() * 3 + 1,
+                    alpha: 1,
+                    speed: 0.05,
+                    twinkle: 0.1
+                });
+            }
+        }
+
+        // TRIGGER CONSTELLATION LECTURE CARD
+        function triggerMagicConstellationUnlock() {
+            const randomConst = CONSTELLATIONS_INFO[Math.floor(Math.random() * CONSTELLATIONS_INFO.length)];
+            
+            setTimeout(() => {
+                const constObj = {
+                    name: `Созвездие: ${randomConst.name}`,
+                    icon: '✨',
+                    subtitle: 'Созвездие распознано • Лекционный разбор',
+                    content: `
+                        <div class="text-center my-2">
+                            <i class="fa-solid fa-star text-gold text-3xl animate-spin"></i>
+                        </div>
+                        <p class="mb-3">${randomConst.desc}</p>
+                        <div class="bg-black/40 border-l-2 border-gold p-3 rounded-r-lg">
+                            <h4 class="font-cinzel text-gold text-xs font-bold mb-1">МАГИЧЕСКИЙ СОВЕТ АСТРОНОМА:</h4>
+                            <p class="text-xs">Рисование линий соединяет ментальные точки с древними звездами, подпитывая палочку звёздной пыльцой и улучшая точные чары направления (Укажи мне).</p>
+                        </div>
+                    `
+                };
+                openModal(constObj);
+            }, 600);
+        }
+
+        // MODE TOGGLE
+        function toggleConstellationMode() {
+            isConstellationMode = !isConstellationMode;
+            const btn = document.getElementById('modeToggleBtn');
+            const btnText = document.getElementById('modeBtnText');
+            const clearBtn = document.getElementById('clearLinesBtn');
+            const guideBtn = document.getElementById('guideBtn');
+
+            if (isConstellationMode) {
+                btn.classList.add('active');
+                btnText.textContent = 'Режим: Небосвод (3D)';
+                clearBtn.classList.remove('hidden');
+                guideBtn.classList.remove('hidden');
+                showToast('Соединяйте звёзды от руки, чтобы составить созвездия!');
+            } else {
+                btn.classList.remove('active');
+                btnText.textContent = 'Режим: Созвездия';
+                clearBtn.classList.add('hidden');
+                guideBtn.classList.add('hidden');
+                showToast('Нажатие на планеты открывает свитки с лекциями');
+            }
+        }
+
+        function clearConstellationLines() {
+            drawnLines = [];
+            activePoint = null;
+            showToast('Линии созвездий очищены');
+        }
+
+        function showConstellationGuide() {
+            const guideObj = {
+                name: 'Руководство по Созвездиям',
+                icon: '📜',
+                subtitle: 'Лекция о звёздных картах',
+                content: `
+                    <p class="mb-3">В Астрономии WoM созвездия — это не просто узоры, а звёздные каркасы магии. Соединяя звёзды линии за линией, астроном настраивается на вибрацию космоса.</p>
+                    <ul class="list-disc list-inside space-y-2 text-xs">
+                        <li><b>Большая Медведица:</b> 7 звёзд слева сверху.</li>
+                        <li><b>Орион:</b> Группа звёзд справа с выраженным поясом.</li>
+                        <li><b>Кассиопея:</b> Зигзагообразная «W» снизу.</li>
+                    </ul>
+                `
+            };
+            openModal(guideObj);
+        }
+
+        // CATEGORY FILTER
+        function selectCategory(cat) {
+            selectedCategory = cat;
+            document.querySelectorAll('.nav-cat-btn').forEach(b => b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            
+            if (isConstellationMode) {
+                toggleConstellationMode(); // Return to solar system mode
+            }
+        }
+
+        // MODAL DISPLAY LOGIC
+        function openModal(data) {
+            document.getElementById('modalTitle').textContent = data.name;
+            document.getElementById('modalSubtitle').textContent = data.subtitle || 'Лекция по Астрономии WoM';
+            document.getElementById('modalIconContainer').textContent = data.icon || '🪐';
+            document.getElementById('modalBody').innerHTML = data.content;
+            
+            document.getElementById('infoModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('infoModal').classList.add('hidden');
+        }
+
+        function showToast(text) {
+            const toastText = document.getElementById('instructionText');
+            toastText.textContent = text;
+        }
+
+        // INITIALIZATION
+        window.onload = function() {
+            initBgStars();
+            initConstellationNodes();
+            animate();
+        };
+    </script>
+</body>
+</html>
